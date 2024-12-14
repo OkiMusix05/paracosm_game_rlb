@@ -17,6 +17,7 @@ fn main() -> Result<(), std::io::Error> {
     // Parse Tile map
     const TILE_WIDTH:i32 = 32;
     const TILE_HEIGHT:i32 = 32;
+
     let image_texture = rl.load_texture(&thread, "assets/Tiled/ground_tiles.png").unwrap();
     let mut texture_lookup:Vec<Rectangle> = {
         let mut lookup:Vec<Rectangle> = Vec::new();
@@ -52,11 +53,32 @@ fn main() -> Result<(), std::io::Error> {
             }
         }
     }
+    //world_layers = vec![world_layers[0].clone()];
+
+    const OFFSET:Vector2 = Vector2::new(600., 200.);
 
     while !rl.window_should_close() {
         // Mouse
         let mouse_position = rl.get_mouse_position();
-        println!("{:?}", mouse_position);
+        let mouse_world_position = ξ(mouse_position.into(), 0., zoom_factor, OFFSET.into());
+        let index_pos = Vector3 {
+            x: ((mouse_world_position.x - 0.5) as i32) as f32,
+            y: ((mouse_world_position.y + 0.5) as i32) as f32, // Cause +y is down and +x is right
+            z: 0.0,
+        };
+        let mut new_z = 0;
+        let rev_arr:Vec<(usize, &Vec<Vec<usize>>)> = world_layers.iter().enumerate().rev().collect();
+        for (k, layer) in rev_arr.clone() {
+            if index_pos.y as usize >= layer.len() || index_pos.x as usize >= layer[index_pos.y as usize].len() {new_z=0; break;}
+            if layer[index_pos.y as usize][index_pos.x as usize] != 0 {new_z = k; break} // layer(y,x)
+            else {continue}
+        }
+        let mouse_is_in = Vector3 {
+            x: index_pos.x,
+            y: index_pos.y,
+            z: new_z as f32,
+        };
+        println!("{:?}", mouse_is_in);
 
         // Drawing
         let mut d = rl.begin_drawing(&thread);
@@ -71,7 +93,7 @@ fn main() -> Result<(), std::io::Error> {
                     if *tile == 0 {continue}
                     // !! Add check to see if there's a tile in a layer above it, then don't render it
                     let world_coords = Vector3::new(x as f32, y as f32, 0.);
-                    let screen_coords = Ξ(world_coords.into(), zoom_factor, Vector2::new(600., 200.).into());
+                    let screen_coords = Ξ(world_coords.into(), zoom_factor, OFFSET.into());
                     let source_rect = texture_lookup[tile - 1];
                     let dest_rect = Rectangle::new(
                         screen_coords.x,
