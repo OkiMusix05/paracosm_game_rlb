@@ -3,7 +3,7 @@ use std::fs;
 use serde_json::Value;
 
 mod special_functions;
-use special_functions::{Ξ, ξ};
+use special_functions::{Ξ, ξ, to_tile_coords};
 
 fn main() -> Result<(), std::io::Error> {
     // Initializing Raylib
@@ -12,7 +12,7 @@ fn main() -> Result<(), std::io::Error> {
         .title("Isometric Tilemap Renderer")
         .build();
     rl.set_target_fps(60);
-    let zoom_factor = 2.;
+    let zoom = 2.;
 
     // Parse Tile map
     const TILE_WIDTH:i32 = 32;
@@ -53,32 +53,26 @@ fn main() -> Result<(), std::io::Error> {
             }
         }
     }
-    //world_layers = vec![world_layers[0].clone()];
+    let inverted_layers:Vec<(usize, &Vec<Vec<usize>>)> = world_layers.iter().enumerate().rev().collect();
 
     const OFFSET:Vector2 = Vector2::new(600., 200.);
 
+    let mut is_dragging:bool = false;
+    let (mut drag_start, mut drag_end):(Vector3, Vector3) = (Vector3::zero(), Vector3::zero());
+    let mut drag_vector:Vector3;
     while !rl.window_should_close() {
         // Mouse
         let mouse_position = rl.get_mouse_position();
-        let mouse_world_position = ξ(mouse_position.into(), 0., zoom_factor, OFFSET.into());
-        let index_pos = Vector3 {
-            x: ((mouse_world_position.x - 0.5) as i32) as f32,
-            y: ((mouse_world_position.y + 0.5) as i32) as f32, // Cause +y is down and +x is right
-            z: 0.0,
-        };
-        let mut new_z = 0;
-        let rev_arr:Vec<(usize, &Vec<Vec<usize>>)> = world_layers.iter().enumerate().rev().collect();
-        for (k, layer) in rev_arr.clone() {
-            if index_pos.y as usize >= layer.len() || index_pos.x as usize >= layer[index_pos.y as usize].len() {new_z=0; break;}
-            if layer[index_pos.y as usize][index_pos.x as usize] != 0 {new_z = k; break} // layer(y,x)
-            else {continue}
+        if rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) {
+            is_dragging = true;
+            drag_start = to_tile_coords(mouse_position.into(), zoom, OFFSET.into(), &inverted_layers);
         }
-        let mouse_is_in = Vector3 {
-            x: index_pos.x,
-            y: index_pos.y,
-            z: new_z as f32,
-        };
-        println!("{:?}", mouse_is_in);
+        if rl.is_mouse_button_released(MouseButton::MOUSE_BUTTON_LEFT) {
+            is_dragging = false;
+            drag_end = to_tile_coords(mouse_position.into(), zoom, OFFSET.into(), &inverted_layers);
+            drag_vector = drag_start - drag_end;
+            println!("drag vector: {:?}", &drag_vector);
+        }
 
         // Drawing
         let mut d = rl.begin_drawing(&thread);
@@ -93,18 +87,29 @@ fn main() -> Result<(), std::io::Error> {
                     if *tile == 0 {continue}
                     // !! Add check to see if there's a tile in a layer above it, then don't render it
                     let world_coords = Vector3::new(x as f32, y as f32, 0.);
-                    let screen_coords = Ξ(world_coords.into(), zoom_factor, OFFSET.into());
+                    let screen_coords = Ξ(world_coords.into(), zoom, OFFSET.into());
                     let source_rect = texture_lookup[tile - 1];
                     let dest_rect = Rectangle::new(
                         screen_coords.x,
                         screen_coords.y,
-                        source_rect.width * zoom_factor,
-                        source_rect.height * zoom_factor,
+                        source_rect.width * zoom,
+                        source_rect.height * zoom,
                     );
                     d.draw_texture_pro(&image_texture, source_rect, dest_rect, Vector2::zero(), 0., Color::WHITE);
                 }
             }
         }
+
+        // Draw drag vector
+        if is_dragging {
+            d.draw_line_ex(
+                Ξ(drag_start, zoom, OFFSET.into()),
+                mouse_position,
+                2.0,
+                Color::SKYBLUE,
+            );
+        }
+
     }
     Ok(())
 }
