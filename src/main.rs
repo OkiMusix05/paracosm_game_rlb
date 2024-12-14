@@ -55,23 +55,41 @@ fn main() -> Result<(), std::io::Error> {
     }
     let inverted_layers:Vec<(usize, &Vec<Vec<usize>>)> = world_layers.iter().enumerate().rev().collect();
 
+    // World drawing position
     const OFFSET:Vector2 = Vector2::new(600., 200.);
+    let mut offset:Vector2 = OFFSET;
 
+    // Dragging logic
     let mut is_dragging:bool = false;
     let (mut drag_start, mut drag_end):(Vector3, Vector3) = (Vector3::zero(), Vector3::zero());
     let mut drag_vector:Vector3;
+
+    // Game screen
     while !rl.window_should_close() {
         // Mouse
         let mouse_position = rl.get_mouse_position();
         if rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) {
             is_dragging = true;
-            drag_start = to_tile_coords(mouse_position.into(), zoom, OFFSET.into(), &inverted_layers);
+            drag_start = to_tile_coords(mouse_position.into(), zoom, offset.into(), &inverted_layers);
         }
         if rl.is_mouse_button_released(MouseButton::MOUSE_BUTTON_LEFT) {
             is_dragging = false;
-            drag_end = to_tile_coords(mouse_position.into(), zoom, OFFSET.into(), &inverted_layers);
+            drag_end = to_tile_coords(mouse_position.into(), zoom, offset.into(), &inverted_layers);
             drag_vector = drag_start - drag_end;
             println!("drag vector: {:?}", &drag_vector);
+        }
+
+        // Keyboard
+        if rl.is_key_down(KeyboardKey::KEY_LEFT) {
+            offset.x -= 1.;
+        } else if rl.is_key_down(KeyboardKey::KEY_RIGHT) {
+            offset.x += 1.;
+        } else if rl.is_key_down(KeyboardKey::KEY_UP) {
+            offset.y -= 1.;
+        } else if rl.is_key_down(KeyboardKey::KEY_DOWN) {
+            offset.y += 1.;
+        } else if rl.is_key_down(KeyboardKey::KEY_ENTER) {
+            offset = OFFSET;
         }
 
         // Drawing
@@ -87,7 +105,7 @@ fn main() -> Result<(), std::io::Error> {
                     if *tile == 0 {continue}
                     // !! Add check to see if there's a tile in a layer above it, then don't render it
                     let world_coords = Vector3::new(x as f32, y as f32, 0.);
-                    let screen_coords = Ξ(world_coords.into(), zoom, OFFSET.into());
+                    let screen_coords = Ξ(world_coords.into(), zoom, offset.into());
                     let source_rect = texture_lookup[tile - 1];
                     let dest_rect = Rectangle::new(
                         screen_coords.x,
@@ -103,7 +121,7 @@ fn main() -> Result<(), std::io::Error> {
         // Draw drag vector
         if is_dragging {
             d.draw_line_ex(
-                Ξ(drag_start, zoom, OFFSET.into()),
+                Ξ(drag_start, zoom, offset.into()),
                 mouse_position,
                 2.0,
                 Color::SKYBLUE,
