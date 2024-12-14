@@ -1,0 +1,8 @@
+[package]
+name = "paracosm_game_rlb"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+raylib = {version = "5.0.2"}
+serde_json = "1.0.133"

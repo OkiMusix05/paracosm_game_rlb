@@ -1,0 +1,43 @@
+{
+    "Map/SizeTest": {
+        "height": 4300,
+        "width": 2
+    },
+    "activeFile": "world1.tmx",
+    "expandedProjectPaths": [
+        "."
+    ],
+    "fileStates": {
+        "ground_tiles.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "world1.tmx": {
+            "scale": 1.4988,
+            "selectedLayer": 1,
+            "viewCenter": {
+                "x": 163.13050440352282,
+                "y": 81.06485188150519
+            }
+        }
+    },
+    "last.exportedFilePath": "/Users/octavioaguayo/Desktop/Coding/Rust/Games/paracosm_game_rlb/assets/Tiled",
+    "last.imagePath": "/Users/octavioaguayo/Desktop/Coding/Rust/Games/paracosm_game_rlb/assets/Tiled",
+    "map.height": 10,
+    "map.lastUsedExportFilter": "JSON map files (*.tmj *.json)",
+    "map.lastUsedFormat": "tmx",
+    "map.layerDataFormat": "1",
+    "map.orientation": "2",
+    "map.tileHeight": 16,
+    "map.width": 10,
+    "openFiles": [
+        "ground_tiles.tsx",
+        "world1.tmx"
+    ],
+    "project": "Paracosm_Tiles.tiled-project",
+    "recentFiles": [
+        "ground_tiles.tsx",
+        "world1.tmx"
+    ],
+    "tileset.lastUsedFormat": "tsx"
+}
