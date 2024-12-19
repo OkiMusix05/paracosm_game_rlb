@@ -19,7 +19,7 @@ impl Player {
         Player {
             name: String::from(name),
             health: 20,
-            speed: 10.,
+            speed: 8.,
             position: Vector3::new(0., 0., 0.),
             velocity: Vector3::zero()
         }
@@ -27,7 +27,8 @@ impl Player {
     pub fn update(&mut self, dt: f32) {
         //let v = ξM(Vector2::new(self.velocity.x, self.velocity.y).normalized());
         //let v = Vector3::new(v.x, v.y, self.velocity.z);
-        self.position += self.velocity.normalized() * self.speed * dt;
+        let v = Vector2::new(self.velocity.x, self.velocity.y).normalized() * self.speed;
+        self.position += Vector3::new(v.x, v.y, self.velocity.z) * dt;
     }
     pub fn draw(&mut self, dwh: &mut RaylibDrawHandle, zoom: f32, offset: Vector2) {
         let p = Ξ(self.position, zoom, offset);
