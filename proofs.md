@@ -27,6 +27,8 @@ x &= \frac{1}{s}\Big(v-v_0+z+\frac{u-u_0}{2}\Big)\\
 y &= \frac{1}{s}\Big(v-v_0+z-\frac{u-u_0}{2}\Big)
 \end{cases}
 $$
+**Def.** Diagrama de coordenadas
+![img.png](assets/helper_coordinates_diagram.png)
 
 ## Cinemática del sistema
 Si la energía potencial está dada por

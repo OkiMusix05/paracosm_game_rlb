@@ -28,6 +28,8 @@ pub fn ξ(p:Vector2, z:f32, zoom:f32, offset:Vector2) -> Vector3 { //R^2->R^3
 }
 
 /// Transformation to world coordinates
+// Note that this code does differentiate from 0.0 and -0.0, but since the whole world is done on positive coordinates
+// then it shouldn't be a problem
 pub fn to_tile_coords(p:Vector2, zoom:f32, offset:Vector2, inverse_layers:&Vec<(usize, &Vec<Vec<usize>>)>) -> Vector3 {
     let world_position = ξ(p.into(), 0., zoom, offset.into());
     let index_pos = Vector3 {
@@ -46,4 +48,14 @@ pub fn to_tile_coords(p:Vector2, zoom:f32, offset:Vector2, inverse_layers:&Vec<(
         y: world_position.y + get_z as f32,
         z: get_z as f32,
     }
+}
+pub fn int_vector(v:Vector3) -> Vector3 {
+    Vector3 { x: (v.x as i32) as f32, y: (v.y as i32) as f32, z: (v.z as i32) as f32 }
+}
+
+pub fn ΞM(v:Vector2) -> Vector2 {
+    Vector2 { x: v.x - v.y, y: (v.x+v.y)/2. }
+}
+pub fn ξM(v:Vector2) -> Vector2 { // Inverse of ΞM
+    Vector2 { x: v.x/2. + v.y, y: -v.x/2. + v.y }
 }

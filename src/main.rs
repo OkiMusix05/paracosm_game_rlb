@@ -3,7 +3,18 @@ use std::fs;
 use serde_json::Value;
 
 mod special_functions;
-use special_functions::{Ξ, ξ, to_tile_coords};
+//use special_functions::{Ξ, ξ, to_tile_coords};
+use special_functions::*;
+mod player;
+use player::*;
+
+
+// Constants
+pub const TILE_WIDTH:i32 = 32;
+pub const TILE_HEIGHT:i32 = 32;
+
+// World constants
+pub const G:f32 = 9.816;
 
 fn main() -> Result<(), std::io::Error> {
     // Initializing Raylib
@@ -15,8 +26,6 @@ fn main() -> Result<(), std::io::Error> {
     let zoom = 2.;
 
     // Parse Tile map
-    const TILE_WIDTH:i32 = 32;
-    const TILE_HEIGHT:i32 = 32;
 
     let image_texture = rl.load_texture(&thread, "assets/Tiled/ground_tiles.png").unwrap();
     let mut texture_lookup:Vec<Rectangle> = {
@@ -64,10 +73,16 @@ fn main() -> Result<(), std::io::Error> {
     let (mut drag_start, mut drag_end):(Vector3, Vector3) = (Vector3::zero(), Vector3::zero());
     let mut drag_vector:Vector3;
 
+    // Player
+    let mut p1 = Player::new("Player1");
+    let mut p1_velocity:Vector2 = Vector2::zero();
+
     // Game screen
     while !rl.window_should_close() {
+        let dt = rl.get_frame_time();
         // Mouse
         let mouse_position = rl.get_mouse_position();
+            //println!("{:?}", to_tile_coords(mouse_position, zoom, offset, &inverted_layers));
         if rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) {
             is_dragging = true;
             drag_start = to_tile_coords(mouse_position.into(), zoom, offset.into(), &inverted_layers);
@@ -80,6 +95,7 @@ fn main() -> Result<(), std::io::Error> {
         }
 
         // Keyboard
+        // World move
         if rl.is_key_down(KeyboardKey::KEY_LEFT) {
             offset.x -= 1.;
         } else if rl.is_key_down(KeyboardKey::KEY_RIGHT) {
@@ -90,6 +106,28 @@ fn main() -> Result<(), std::io::Error> {
             offset.y += 1.;
         } else if rl.is_key_down(KeyboardKey::KEY_ENTER) {
             offset = OFFSET;
+        }
+
+        // Player move
+        if rl.is_key_pressed(KeyboardKey::KEY_W) { // UP
+            p1.velocity += Vector3::new(-1., -1., 0.);
+        } else if rl.is_key_released(KeyboardKey::KEY_W) {
+            p1.velocity -= Vector3::new(-1., -1., 0.);
+        }
+        if rl.is_key_pressed(KeyboardKey::KEY_S) { // Down
+            p1.velocity += Vector3::new(1., 1., 0.);
+        } else if rl.is_key_released(KeyboardKey::KEY_S) {
+            p1.velocity -= Vector3::new(1., 1., 0.);
+        }
+        if rl.is_key_pressed(KeyboardKey::KEY_D) { // Right
+            p1.velocity += Vector3::new(1., -1., 0.);
+        } else if rl.is_key_released(KeyboardKey::KEY_D) {
+            p1.velocity -= Vector3::new(1., -1., 0.);
+        }
+        if rl.is_key_pressed(KeyboardKey::KEY_A) { // Left
+            p1.velocity += Vector3::new(-1., 1., 0.);
+        } else if rl.is_key_released(KeyboardKey::KEY_A) {
+            p1.velocity -= Vector3::new(-1., 1., 0.);
         }
 
         // Drawing
@@ -105,7 +143,9 @@ fn main() -> Result<(), std::io::Error> {
                     if *tile == 0 {continue}
                     // !! Add check to see if there's a tile in a layer above it, then don't render it
                     let world_coords = Vector3::new(x as f32, y as f32, 0.);
-                    let screen_coords = Ξ(world_coords.into(), zoom, offset.into());
+                    let mut screen_coords = Ξ(world_coords.into(), zoom, offset.into());
+                    screen_coords.x += TILE_WIDTH as f32/2.;
+                    screen_coords.y -= TILE_HEIGHT as f32/2.;
                     let source_rect = texture_lookup[tile - 1];
                     let dest_rect = Rectangle::new(
                         screen_coords.x,
@@ -117,6 +157,10 @@ fn main() -> Result<(), std::io::Error> {
                 }
             }
         }
+
+        // Draw player
+        p1.update(dt);
+        p1.draw(&mut d, zoom, offset);
 
         // Draw drag vector
         if is_dragging {
