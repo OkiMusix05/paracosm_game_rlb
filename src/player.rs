@@ -2,6 +2,13 @@ use raylib::prelude::*;
 use crate::special_functions::{Ξ, ξ, to_tile_coords, ΞM, ξM};
 use crate::{TILE_WIDTH, TILE_HEIGHT};
 
+// Directions
+pub const MOVE_UP:Vector3 = Vector3::new(-1., -1., 0.);
+pub const MOVE_DOWN:Vector3 = Vector3::new(1., 1., 0.);
+pub const MOVE_RIGHT:Vector3 = Vector3::new(1., -1., 0.);
+pub const MOVE_LEFT:Vector3 = Vector3::new(-1., 1., 0.);
+
+// Player
 pub struct Player {
     /// Identifier
     name: String,

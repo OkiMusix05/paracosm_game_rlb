@@ -75,7 +75,6 @@ fn main() -> Result<(), std::io::Error> {
 
     // Player
     let mut p1 = Player::new("Player1");
-    let mut p1_velocity:Vector2 = Vector2::zero();
 
     // Game screen
     while !rl.window_should_close() {
@@ -109,26 +108,14 @@ fn main() -> Result<(), std::io::Error> {
         }
 
         // Player move
-        if rl.is_key_pressed(KeyboardKey::KEY_W) { // UP
-            p1.velocity += Vector3::new(-1., -1., 0.);
-        } else if rl.is_key_released(KeyboardKey::KEY_W) {
-            p1.velocity -= Vector3::new(-1., -1., 0.);
-        }
-        if rl.is_key_pressed(KeyboardKey::KEY_S) { // Down
-            p1.velocity += Vector3::new(1., 1., 0.);
-        } else if rl.is_key_released(KeyboardKey::KEY_S) {
-            p1.velocity -= Vector3::new(1., 1., 0.);
-        }
-        if rl.is_key_pressed(KeyboardKey::KEY_D) { // Right
-            p1.velocity += Vector3::new(1., -1., 0.);
-        } else if rl.is_key_released(KeyboardKey::KEY_D) {
-            p1.velocity -= Vector3::new(1., -1., 0.);
-        }
-        if rl.is_key_pressed(KeyboardKey::KEY_A) { // Left
-            p1.velocity += Vector3::new(-1., 1., 0.);
-        } else if rl.is_key_released(KeyboardKey::KEY_A) {
-            p1.velocity -= Vector3::new(-1., 1., 0.);
-        }
+        if rl.is_key_pressed(KeyboardKey::KEY_W) { p1.velocity += MOVE_UP;
+        } else if rl.is_key_released(KeyboardKey::KEY_W) { p1.velocity -= MOVE_UP; } // UP
+        if rl.is_key_pressed(KeyboardKey::KEY_S) { p1.velocity += MOVE_DOWN;
+        } else if rl.is_key_released(KeyboardKey::KEY_S) { p1.velocity -= MOVE_DOWN; } // DOWN
+        if rl.is_key_pressed(KeyboardKey::KEY_D) { p1.velocity += MOVE_RIGHT;
+        } else if rl.is_key_released(KeyboardKey::KEY_D) { p1.velocity -= MOVE_RIGHT; } // RIGHT
+        if rl.is_key_pressed(KeyboardKey::KEY_A) { p1.velocity += MOVE_LEFT;
+        } else if rl.is_key_released(KeyboardKey::KEY_A) { p1.velocity -= MOVE_LEFT; } // LEFT
 
         // Drawing
         let mut d = rl.begin_drawing(&thread);
