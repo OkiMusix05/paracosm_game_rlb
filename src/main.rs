@@ -15,6 +15,19 @@ pub const TILE_HEIGHT:i32 = 32;
 
 // World constants
 pub const G:f32 = 9.816;
+pub fn world(pos:Vector3, world_layers:&Vec<Vec<Vec<usize>>>, world_width:u64, world_height:u64) -> bool {
+    let (mut x, mut y, z) = (pos.x as i32, pos.y as i32, pos.z as usize);
+    println!("{}, {}, {}", x, y, z);
+    if (x < world_width as i32 && x >= 1) && (y < world_height as i32 && y >= 1) {
+        //let current_layer = &world_layers[z];
+        let higher_layer = &world_layers[z+1];
+        //let higher2_layer = &world_layers[z+2];
+        if higher_layer[y as usize -1][x as usize -1] != 0 /*|| higher2_layer[y as usize -2][x as usize - 2] != 0*/ {
+            return false;
+        }
+    }
+    true
+}
 
 fn main() -> Result<(), std::io::Error> {
     // Initializing Raylib
@@ -44,10 +57,10 @@ fn main() -> Result<(), std::io::Error> {
     };
 
     // World Tile map arrangements
-    let world_json: Value = serde_json::from_str(&fs::read_to_string("assets/Tiled/world1.tmj")?)?;
-    let (world_width, _) = {
+    let world_json: Value = serde_json::from_str(&fs::read_to_string("assets/Tiled/world2.tmj")?)?;
+    let (world_width, world_height) = {
         (world_json.get("width").and_then(|v| v.as_u64()).expect("1"), world_json.get("height").and_then(|v| v.as_u64()).expect("2"))
-    }; // _ is world_height
+    };
     let mut world_layers:Vec<Vec<Vec<usize>>> = Vec::new(); // List of Matrices
     if let Some(layers) = world_json.get("layers").and_then(|v| v.as_array()) {
         for layer in layers.iter() {
@@ -69,9 +82,10 @@ fn main() -> Result<(), std::io::Error> {
     let mut offset:Vector2 = OFFSET;
 
     // Dragging logic
-    let mut is_dragging:bool = false;
+    let mut is_clicking:bool = false;
+    /*let mut is_dragging:bool = false;
     let (mut drag_start, mut drag_end):(Vector3, Vector3) = (Vector3::zero(), Vector3::zero());
-    let mut drag_vector:Vector3;
+    let mut drag_vector:Vector3;*/
 
     // Player
     let mut p1 = Player::new("Player1");
@@ -81,8 +95,9 @@ fn main() -> Result<(), std::io::Error> {
         let dt = rl.get_frame_time();
         // Mouse
         let mouse_position = rl.get_mouse_position();
+        if rl.is_mouse_button_down(MouseButton::MOUSE_BUTTON_LEFT) {is_clicking = true;} else {is_clicking = false;}
             //println!("{:?}", to_tile_coords(mouse_position, zoom, offset, &inverted_layers));
-        if rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) {
+        /*if rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) {
             is_dragging = true;
             drag_start = to_tile_coords(mouse_position.into(), zoom, offset.into(), &inverted_layers);
         }
@@ -91,7 +106,7 @@ fn main() -> Result<(), std::io::Error> {
             drag_end = to_tile_coords(mouse_position.into(), zoom, offset.into(), &inverted_layers);
             drag_vector = drag_start - drag_end;
             println!("drag vector: {:?}", &drag_vector);
-        }
+        }*/
 
         // Keyboard
         // World move
@@ -116,6 +131,28 @@ fn main() -> Result<(), std::io::Error> {
         } else if rl.is_key_released(KeyboardKey::KEY_D) { p1.velocity -= MOVE_RIGHT; } // RIGHT
         if rl.is_key_pressed(KeyboardKey::KEY_A) { p1.velocity += MOVE_LEFT;
         } else if rl.is_key_released(KeyboardKey::KEY_A) { p1.velocity -= MOVE_LEFT; } // LEFT
+        //if rl.is_key_pressed(KeyboardKey::KEY_SPACE) {p1.position.z += 1.}
+        println!("{:?}", world(p1.position, &world_layers, world_width, world_height));
+
+        if p1.position.x > world_width as f32 {
+            p1.position.x = world_width as f32;
+        } else if p1.position.x < 1. {
+            p1.position.x = 1.;
+        }
+        if p1.position.y > world_height as f32 {
+            p1.position.y = world_height as f32;
+        } else if p1.position.y < 1. {
+            p1.position.y = 1.;
+        }
+        match world(p1.position, &world_layers, world_width, world_height) {
+            true => {}
+            false => {
+                let x_diff = p1.position.x.round() - p1.position.x;
+                let y_diff = p1.position.y.round() - p1.position.y;
+                p1.position.x += x_diff;
+                p1.position.y += y_diff;
+            }
+        }
 
         // Drawing
         let mut d = rl.begin_drawing(&thread);
@@ -150,9 +187,17 @@ fn main() -> Result<(), std::io::Error> {
         p1.draw(&mut d, zoom, offset);
 
         // Draw drag vector
-        if is_dragging {
+        /*if is_dragging {
             d.draw_line_ex(
                 Ξ(drag_start, zoom, offset.into()),
+                mouse_position,
+                2.0,
+                Color::SKYBLUE,
+            );
+        }*/
+        if is_clicking {
+            d.draw_line_ex(
+                Ξ(Vector3::new(p1.position.x, p1.position.y-1., p1.position.z), zoom, offset.into())+Vector2::new(0.5*TILE_WIDTH as f32,-1.0*TILE_HEIGHT as f32),
                 mouse_position,
                 2.0,
                 Color::SKYBLUE,
