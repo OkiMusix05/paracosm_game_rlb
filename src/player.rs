@@ -1,6 +1,7 @@
 use raylib::prelude::*;
 use crate::special_functions::{Ξ, ξ, to_tile_coords, ΞM, ξM};
-use crate::{TILE_WIDTH, TILE_HEIGHT};
+use crate::{TILE_WIDTH, TILE_HEIGHT, G};
+use crate::{find_highest_z};
 
 // Directions
 pub const MOVE_UP:Vector3 = Vector3::new(-1., -1., 0.);
@@ -39,8 +40,14 @@ impl Player {
             velocity: Vector3::zero()
         }
     }
-    pub fn update(&mut self, dt: f32) {
+    pub fn update(&mut self, world:&Vec<Vec<Vec<usize>>> ,dt: f32) {
         let v = Vector2::new(self.velocity.x, self.velocity.y).normalized() * self.speed;
+        if self.position.z > find_highest_z(Vector2::new(self.position.x, self.position.y), world) /*(self.position.z - (self.position.z as i32) as f32) > 0.*/ {
+            if self.velocity.z > 0. {
+                self.velocity.z -= G*dt;
+            } else {self.velocity.z -= 1.5*G*dt} // for artistic falling effect
+        }
+        //else {self.position.z += (self.position.z as i32) as f32;}
         self.position += Vector3::new(v.x, v.y, self.velocity.z) * dt;
     }
     pub fn draw(&mut self, dwh: &mut RaylibDrawHandle, zoom: f32, offset: Vector2) {

@@ -14,21 +14,27 @@ pub const TILE_WIDTH:i32 = 32;
 pub const TILE_HEIGHT:i32 = 32;
 
 // World constants
-pub const G:f32 = 9.816;
+pub const G:f32 = 2.*9.816;
 pub fn world_fn(pos:Vector3, world:&Vec<Vec<Vec<usize>>>, world_width:u64, world_height:u64) -> bool {
     let (mut x, mut y, z) = (pos.x as i32, pos.y as i32, pos.z as usize);
-    if z <= world.len() - 2 {
+    if z < world.len() - 2 {
         println!("{}, {}, {}", x, y, z);
         if (x < world_width as i32 && x >= 1) && (y < world_height as i32 && y >= 1) {
-            //let current_layer = &world_layers[z];
-            //let higher_layer = &world_layers[z+1];
-            //let higher2_layer = &world_layers[z+2];
             if world[z+1][y as usize][x as usize] != 0 || world[z+2][y as usize][x as usize] != 0 {
                 return false;
             }
         }
     }
     true
+}
+pub fn find_highest_z(p:Vector2, world:&Vec<Vec<Vec<usize>>>) -> f32 {
+    let mut highest_z:usize = 0;
+    if p.x < 1. || p.y < 1. || p.y >= world[0].len() as f32 { return 0.; }
+    if p.x >= world[0][p.y as usize].len() as f32 { return 0.; }
+    for (k, z) in world.iter().enumerate() {
+        if z[p.y as usize][p.x as usize] > highest_z { highest_z = k; } else { continue }
+    }
+    highest_z as f32
 }
 
 fn main() -> Result<(), std::io::Error> {
@@ -41,7 +47,6 @@ fn main() -> Result<(), std::io::Error> {
     let zoom = 2.;
 
     // Parse Tile map
-
     let image_texture = rl.load_texture(&thread, "assets/Tiled/ground_tiles.png").unwrap();
     let mut texture_lookup:Vec<Rectangle> = {
         let mut lookup:Vec<Rectangle> = Vec::new();
@@ -79,28 +84,6 @@ fn main() -> Result<(), std::io::Error> {
     }
     let inverted_layers:Vec<(usize, &Vec<Vec<usize>>)> = world_layers.iter().enumerate().rev().collect();
     let world:Vec<Vec<Vec<usize>>> = {
-        /*let h = world_layers.len();
-        let m = world_layers[0].len();
-        let n = world_layers[0][0].len();
-
-        // Create a new tensor initialized to 0
-        let mut transformed_world = vec![vec![vec![0; n]; m]; h];
-
-        for z in 0..h {
-            for y in 0..m {
-                for x in 0..n {
-                    // Calculate new positions with offsets
-                    let new_y = y as isize - z as isize;
-                    let new_x = x as isize - z as isize;
-
-                    // Ensure new positions are within bounds
-                    if new_y >= 0 && new_y < m as isize && new_x >= 0 && new_x < n as isize {
-                        transformed_world[z][new_y as usize][new_x as usize] = world_layers[z][y][x];
-                    }
-                }
-            }
-        }
-        transformed_world*/
         let mut world_:Vec<Vec<Vec<usize>>> = vec![];
         for (k, z) in world_layers.iter().enumerate() {
             if k==0 { world_.push(z.clone()); continue; }
@@ -108,15 +91,14 @@ fn main() -> Result<(), std::io::Error> {
             for (j, y) in z.iter().enumerate() {
                 for (i, x) in y.iter().enumerate() {
                     if i+k < world_width as usize && j+k < world_height as usize {
-                        layer[j+k][i+k] = z[j][i];
+                        layer[j+k][i+k] = z[j][i]; // later check for z[j][i]'s number. 1 would represent a solid block and so on
                     }
                 }
             }
             world_.push(layer);
         }
+        world_.push(vec![vec![0; world_width as usize]; world_height as usize]); // world top
         world_.push(vec![vec![0; world_width as usize]; world_height as usize]);
-        world_.push(vec![vec![0; world_width as usize]; world_height as usize]);
-        println!("{:?}", world_);
         world_
     };
 
@@ -126,6 +108,8 @@ fn main() -> Result<(), std::io::Error> {
 
     // Dragging logic
     let mut is_clicking:bool = false;
+    let mut jump_timer:f32 = 0.;
+    let mut jump_number:u8 = 0;
     /*let mut is_dragging:bool = false;
     let (mut drag_start, mut drag_end):(Vector3, Vector3) = (Vector3::zero(), Vector3::zero());
     let mut drag_vector:Vector3;*/
@@ -175,8 +159,17 @@ fn main() -> Result<(), std::io::Error> {
         } else if rl.is_key_released(KeyboardKey::KEY_D) { p1.velocity -= MOVE_RIGHT; } // RIGHT
         if rl.is_key_pressed(KeyboardKey::KEY_A) { p1.velocity += MOVE_LEFT;
         } else if rl.is_key_released(KeyboardKey::KEY_A) { p1.velocity -= MOVE_LEFT; } // LEFT
-        if rl.is_key_pressed(KeyboardKey::KEY_SPACE) {p1.position.z += 1.}
-        println!("{:?}", world_fn(p1.position, &world, world_width, world_height));
+        jump_timer += dt;
+        if rl.is_key_pressed(KeyboardKey::KEY_SPACE) {
+            jump_number += 1;
+            if jump_timer < 0.3 && jump_number < 2 { // Double jump window
+                p1.velocity.z += 7.;
+            }
+        }
+        // add dash mechanic with shift and a timer
+        println!("v = {}", p1.velocity.z);
+        //println!("jt = {}, {}", jump_timer, jump_number);
+        //println!("{:?}", world_fn(p1.position, &world, world_width, world_height));
 
         if p1.position.x > world_width as f32 {
             p1.position.x = world_width as f32;
@@ -188,9 +181,16 @@ fn main() -> Result<(), std::io::Error> {
         } else if p1.position.y < 1. {
             p1.position.y = 1.;
         }
+        let highest_z = find_highest_z(Vector2::new(p1.position.x, p1.position.y), &world);
+        if p1.position.z < highest_z {
+            p1.position.z = highest_z;
+            p1.velocity.z = 0.;
+        }
+        if p1.position.z == highest_z {jump_timer = 0.; jump_number = 0;}
+
         match world_fn(p1.position, &world, world_width, world_height) {
             true => {}
-            false => {
+            false => { // fix wall collisions with polar coordinates
                 let x_diff = p1.position.x.round() - p1.position.x;
                 let y_diff = p1.position.y.round() - p1.position.y;
                 p1.position.x += x_diff;
@@ -227,7 +227,7 @@ fn main() -> Result<(), std::io::Error> {
         }
 
         // Draw player
-        p1.update(dt);
+        p1.update(&world, dt);
         //let shadow_pos = Ξ(Vector3::new(p1.position.x, p1.position.y, 0.), zoom, offset.into());
         //d.draw_circle(shadow_pos.x as i32 + TILE_WIDTH + TILE_WIDTH/2, shadow_pos.y as i32 - TILE_HEIGHT/2, 16., Color::GRAY);
         p1.draw(&mut d, zoom, offset);
