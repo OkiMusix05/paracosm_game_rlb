@@ -15,15 +15,17 @@ pub const TILE_HEIGHT:i32 = 32;
 
 // World constants
 pub const G:f32 = 9.816;
-pub fn world(pos:Vector3, world_layers:&Vec<Vec<Vec<usize>>>, world_width:u64, world_height:u64) -> bool {
+pub fn world_fn(pos:Vector3, world:&Vec<Vec<Vec<usize>>>, world_width:u64, world_height:u64) -> bool {
     let (mut x, mut y, z) = (pos.x as i32, pos.y as i32, pos.z as usize);
-    println!("{}, {}, {}", x, y, z);
-    if (x < world_width as i32 && x >= 1) && (y < world_height as i32 && y >= 1) {
-        //let current_layer = &world_layers[z];
-        let higher_layer = &world_layers[z+1];
-        //let higher2_layer = &world_layers[z+2];
-        if higher_layer[y as usize -1][x as usize -1] != 0 /*|| higher2_layer[y as usize -2][x as usize - 2] != 0*/ {
-            return false;
+    if z <= world.len() - 2 {
+        println!("{}, {}, {}", x, y, z);
+        if (x < world_width as i32 && x >= 1) && (y < world_height as i32 && y >= 1) {
+            //let current_layer = &world_layers[z];
+            //let higher_layer = &world_layers[z+1];
+            //let higher2_layer = &world_layers[z+2];
+            if world[z+1][y as usize][x as usize] != 0 || world[z+2][y as usize][x as usize] != 0 {
+                return false;
+            }
         }
     }
     true
@@ -35,7 +37,7 @@ fn main() -> Result<(), std::io::Error> {
         .size(1280, 720)
         .title("Isometric Tilemap Renderer")
         .build();
-    rl.set_target_fps(60);
+    //rl.set_target_fps(60);
     let zoom = 2.;
 
     // Parse Tile map
@@ -76,9 +78,50 @@ fn main() -> Result<(), std::io::Error> {
         }
     }
     let inverted_layers:Vec<(usize, &Vec<Vec<usize>>)> = world_layers.iter().enumerate().rev().collect();
+    let world:Vec<Vec<Vec<usize>>> = {
+        /*let h = world_layers.len();
+        let m = world_layers[0].len();
+        let n = world_layers[0][0].len();
+
+        // Create a new tensor initialized to 0
+        let mut transformed_world = vec![vec![vec![0; n]; m]; h];
+
+        for z in 0..h {
+            for y in 0..m {
+                for x in 0..n {
+                    // Calculate new positions with offsets
+                    let new_y = y as isize - z as isize;
+                    let new_x = x as isize - z as isize;
+
+                    // Ensure new positions are within bounds
+                    if new_y >= 0 && new_y < m as isize && new_x >= 0 && new_x < n as isize {
+                        transformed_world[z][new_y as usize][new_x as usize] = world_layers[z][y][x];
+                    }
+                }
+            }
+        }
+        transformed_world*/
+        let mut world_:Vec<Vec<Vec<usize>>> = vec![];
+        for (k, z) in world_layers.iter().enumerate() {
+            if k==0 { world_.push(z.clone()); continue; }
+            let mut layer: Vec<Vec<usize>> = vec![vec![0; world_width as usize]; world_height as usize];
+            for (j, y) in z.iter().enumerate() {
+                for (i, x) in y.iter().enumerate() {
+                    if i+k < world_width as usize && j+k < world_height as usize {
+                        layer[j+k][i+k] = z[j][i];
+                    }
+                }
+            }
+            world_.push(layer);
+        }
+        world_.push(vec![vec![0; world_width as usize]; world_height as usize]);
+        world_.push(vec![vec![0; world_width as usize]; world_height as usize]);
+        println!("{:?}", world_);
+        world_
+    };
 
     // World drawing position
-    const OFFSET:Vector2 = Vector2::new(600., 200.);
+    const OFFSET:Vector2 = Vector2::new(800., 150.);
     let mut offset:Vector2 = OFFSET;
 
     // Dragging logic
@@ -93,6 +136,7 @@ fn main() -> Result<(), std::io::Error> {
     // Game screen
     while !rl.window_should_close() {
         let dt = rl.get_frame_time();
+        let fps = rl.get_fps();
         // Mouse
         let mouse_position = rl.get_mouse_position();
         if rl.is_mouse_button_down(MouseButton::MOUSE_BUTTON_LEFT) {is_clicking = true;} else {is_clicking = false;}
@@ -131,8 +175,8 @@ fn main() -> Result<(), std::io::Error> {
         } else if rl.is_key_released(KeyboardKey::KEY_D) { p1.velocity -= MOVE_RIGHT; } // RIGHT
         if rl.is_key_pressed(KeyboardKey::KEY_A) { p1.velocity += MOVE_LEFT;
         } else if rl.is_key_released(KeyboardKey::KEY_A) { p1.velocity -= MOVE_LEFT; } // LEFT
-        //if rl.is_key_pressed(KeyboardKey::KEY_SPACE) {p1.position.z += 1.}
-        println!("{:?}", world(p1.position, &world_layers, world_width, world_height));
+        if rl.is_key_pressed(KeyboardKey::KEY_SPACE) {p1.position.z += 1.}
+        println!("{:?}", world_fn(p1.position, &world, world_width, world_height));
 
         if p1.position.x > world_width as f32 {
             p1.position.x = world_width as f32;
@@ -144,7 +188,7 @@ fn main() -> Result<(), std::io::Error> {
         } else if p1.position.y < 1. {
             p1.position.y = 1.;
         }
-        match world(p1.position, &world_layers, world_width, world_height) {
+        match world_fn(p1.position, &world, world_width, world_height) {
             true => {}
             false => {
                 let x_diff = p1.position.x.round() - p1.position.x;
@@ -184,6 +228,8 @@ fn main() -> Result<(), std::io::Error> {
 
         // Draw player
         p1.update(dt);
+        //let shadow_pos = Ξ(Vector3::new(p1.position.x, p1.position.y, 0.), zoom, offset.into());
+        //d.draw_circle(shadow_pos.x as i32 + TILE_WIDTH + TILE_WIDTH/2, shadow_pos.y as i32 - TILE_HEIGHT/2, 16., Color::GRAY);
         p1.draw(&mut d, zoom, offset);
 
         // Draw drag vector
@@ -203,6 +249,7 @@ fn main() -> Result<(), std::io::Error> {
                 Color::SKYBLUE,
             );
         }
+        d.draw_text(&format!("FPS: {}", fps), 10, 10, 20, Color::WHITE);
 
     }
     Ok(())

@@ -35,7 +35,7 @@ impl Player {
             name: String::from(name),
             health: 20,
             speed: 8.,
-            position: Vector3::new(2., 2., 0.),
+            position: Vector3::new(6., 2., 0.),
             velocity: Vector3::zero()
         }
     }
