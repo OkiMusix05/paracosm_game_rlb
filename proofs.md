@@ -51,4 +51,3 @@ Los mapas se hacen con Tiled y se dividen en capas:
 - z0: La primera capa es el suelo, lleva el nombre de "z0".
 En esta capa no se deben colocar bloques en las filas x=0 o y=0.
 - z1, z2, z3: Corresponden a las siguientes alturas
-- sky: La última capa, siempre debe existir y deben de estar vacías.

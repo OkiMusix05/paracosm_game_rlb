@@ -59,3 +59,7 @@ pub fn ΞM(v:Vector2) -> Vector2 {
 pub fn ξM(v:Vector2) -> Vector2 { // Inverse of ΞM
     Vector2 { x: v.x/2. + v.y, y: -v.x/2. + v.y }
 }
+
+pub fn get_int_xy_position(p:Vector3) -> (usize, usize) {
+    (p.x as usize, p.y as usize)
+}

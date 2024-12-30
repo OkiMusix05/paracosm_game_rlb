@@ -15,10 +15,12 @@ pub const TILE_HEIGHT:i32 = 32;
 
 // World constants
 pub const G:f32 = 2.*9.816;
+
+/// Determines if the player can be in that spacial position or not
 pub fn world_fn(pos:Vector3, world:&Vec<Vec<Vec<usize>>>, world_width:u64, world_height:u64) -> bool {
-    let (mut x, mut y, z) = (pos.x as i32, pos.y as i32, pos.z as usize);
+    println!("{}, {}, {}", pos.x, pos.y, pos.z);
+    let (mut x, mut y, z) = (pos.x as i32, pos.y as i32, pos.z.floor() as usize);
     if z < world.len() - 2 {
-        println!("{}, {}, {}", x, y, z);
         if (x < world_width as i32 && x >= 1) && (y < world_height as i32 && y >= 1) {
             if world[z+1][y as usize][x as usize] != 0 || world[z+2][y as usize][x as usize] != 0 {
                 return false;
@@ -27,7 +29,7 @@ pub fn world_fn(pos:Vector3, world:&Vec<Vec<Vec<usize>>>, world_width:u64, world
     }
     true
 }
-pub fn find_highest_z(p:Vector2, world:&Vec<Vec<Vec<usize>>>) -> f32 {
+pub fn find_highest_z(p:Vector3, world:&Vec<Vec<Vec<usize>>>) -> f32 {
     let mut highest_z:usize = 0;
     if p.x < 1. || p.y < 1. || p.y >= world[0].len() as f32 { return 0.; }
     if p.x >= world[0][p.y as usize].len() as f32 { return 0.; }
@@ -35,6 +37,26 @@ pub fn find_highest_z(p:Vector2, world:&Vec<Vec<Vec<usize>>>) -> f32 {
         if z[p.y as usize][p.x as usize] > highest_z { highest_z = k; } else { continue }
     }
     highest_z as f32
+}
+
+/// Projects vectors into outside a square
+/// used when the players position is inside a block it shouldn't be to move it out of it,
+/// effectively implementing wall collisions
+fn xy_block_collision(p:Vector3) -> Vector3 {
+    let grid_x = p.x.floor();
+    let grid_y = p.y.floor();
+
+    let local_x = p.x - grid_x - 0.5;
+    let local_y = p.y - grid_y - 0.5;
+
+    let scale_x = if local_x != 0.0 { 0.5 / local_x.abs() } else { f32::INFINITY };
+    let scale_y = if local_y != 0.0 { 0.5 / local_y.abs() } else { f32::INFINITY };
+    const SLIGHT_PUSH:f32 = 0.01;
+    let scale = scale_x.min(scale_y) + SLIGHT_PUSH;
+
+    let projected_x = local_x * scale;
+    let projected_y = local_y * scale;
+    Vector3::new(projected_x + grid_x + 0.5, projected_y + grid_y + 0.5, p.z)
 }
 
 fn main() -> Result<(), std::io::Error> {
@@ -68,7 +90,7 @@ fn main() -> Result<(), std::io::Error> {
     let (world_width, world_height) = {
         (world_json.get("width").and_then(|v| v.as_u64()).expect("1"), world_json.get("height").and_then(|v| v.as_u64()).expect("2"))
     };
-    let mut world_layers:Vec<Vec<Vec<usize>>> = Vec::new(); // List of Matrices
+    let mut world_layers_raw:Vec<Vec<Vec<usize>>> = Vec::new(); // List of Matrices
     if let Some(layers) = world_json.get("layers").and_then(|v| v.as_array()) {
         for layer in layers.iter() {
             if let Some(data) = layer.get("data").and_then(|v| v.as_array()) {
@@ -78,14 +100,14 @@ fn main() -> Result<(), std::io::Error> {
                 let matrix: Vec<Vec<usize>> = data.chunks(world_width as usize)
                     .map(|chunk| chunk.to_vec())
                     .collect();
-                world_layers.push(matrix);
+                world_layers_raw.push(matrix);
             }
         }
     }
-    let inverted_layers:Vec<(usize, &Vec<Vec<usize>>)> = world_layers.iter().enumerate().rev().collect();
+    let inverted_layers:Vec<(usize, &Vec<Vec<usize>>)> = world_layers_raw.iter().enumerate().rev().collect();
     let world:Vec<Vec<Vec<usize>>> = {
         let mut world_:Vec<Vec<Vec<usize>>> = vec![];
-        for (k, z) in world_layers.iter().enumerate() {
+        for (k, z) in world_layers_raw.iter().enumerate() {
             if k==0 { world_.push(z.clone()); continue; }
             let mut layer: Vec<Vec<usize>> = vec![vec![0; world_width as usize]; world_height as usize];
             for (j, y) in z.iter().enumerate() {
@@ -123,8 +145,8 @@ fn main() -> Result<(), std::io::Error> {
         let fps = rl.get_fps();
         // Mouse
         let mouse_position = rl.get_mouse_position();
-        if rl.is_mouse_button_down(MouseButton::MOUSE_BUTTON_LEFT) {is_clicking = true;} else {is_clicking = false;}
-            //println!("{:?}", to_tile_coords(mouse_position, zoom, offset, &inverted_layers));
+        if rl.is_mouse_button_down(MouseButton::MOUSE_BUTTON_LEFT) { is_clicking = true; } else { is_clicking = false; }
+        //println!("{:?}", to_tile_coords(mouse_position, zoom, offset, &inverted_layers));
         /*if rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) {
             is_dragging = true;
             drag_start = to_tile_coords(mouse_position.into(), zoom, offset.into(), &inverted_layers);
@@ -151,13 +173,17 @@ fn main() -> Result<(), std::io::Error> {
         }
 
         // Player move
-        if rl.is_key_pressed(KeyboardKey::KEY_W) { p1.velocity += MOVE_UP;
+        if rl.is_key_pressed(KeyboardKey::KEY_W) {
+            p1.velocity += MOVE_UP;
         } else if rl.is_key_released(KeyboardKey::KEY_W) { p1.velocity -= MOVE_UP; } // UP
-        if rl.is_key_pressed(KeyboardKey::KEY_S) { p1.velocity += MOVE_DOWN;
+        if rl.is_key_pressed(KeyboardKey::KEY_S) {
+            p1.velocity += MOVE_DOWN;
         } else if rl.is_key_released(KeyboardKey::KEY_S) { p1.velocity -= MOVE_DOWN; } // DOWN
-        if rl.is_key_pressed(KeyboardKey::KEY_D) { p1.velocity += MOVE_RIGHT;
+        if rl.is_key_pressed(KeyboardKey::KEY_D) {
+            p1.velocity += MOVE_RIGHT;
         } else if rl.is_key_released(KeyboardKey::KEY_D) { p1.velocity -= MOVE_RIGHT; } // RIGHT
-        if rl.is_key_pressed(KeyboardKey::KEY_A) { p1.velocity += MOVE_LEFT;
+        if rl.is_key_pressed(KeyboardKey::KEY_A) {
+            p1.velocity += MOVE_LEFT;
         } else if rl.is_key_released(KeyboardKey::KEY_A) { p1.velocity -= MOVE_LEFT; } // LEFT
         jump_timer += dt;
         if rl.is_key_pressed(KeyboardKey::KEY_SPACE) {
@@ -171,30 +197,32 @@ fn main() -> Result<(), std::io::Error> {
         //println!("jt = {}, {}", jump_timer, jump_number);
         //println!("{:?}", world_fn(p1.position, &world, world_width, world_height));
 
-        if p1.position.x > world_width as f32 {
-            p1.position.x = world_width as f32;
+        // Prevent player from leaving the boundaries of the world
+        if p1.position.x > world_width as f32 - 1. {
+            p1.position.x = world_width as f32 - 1.05;
         } else if p1.position.x < 1. {
             p1.position.x = 1.;
         }
-        if p1.position.y > world_height as f32 {
-            p1.position.y = world_height as f32;
+        if p1.position.y > world_height as f32 - 1.{
+            p1.position.y = world_height as f32 - 1.05;
         } else if p1.position.y < 1. {
             p1.position.y = 1.;
         }
-        let highest_z = find_highest_z(Vector2::new(p1.position.x, p1.position.y), &world);
-        if p1.position.z < highest_z {
+
+        // Give the player gravity, jump, and ground detection
+        let highest_z = find_highest_z(p1.position, &world);
+        let height_diff = p1.position.z - highest_z;
+        if height_diff < 0. && height_diff > -0.05 && p1.velocity.z < 0.0 {
             p1.position.z = highest_z;
             p1.velocity.z = 0.;
         }
-        if p1.position.z == highest_z {jump_timer = 0.; jump_number = 0;}
+        if p1.position.z == highest_z { jump_timer = 0.; jump_number = 0; }
 
+        // world collisions
         match world_fn(p1.position, &world, world_width, world_height) {
             true => {}
-            false => { // fix wall collisions with polar coordinates
-                let x_diff = p1.position.x.round() - p1.position.x;
-                let y_diff = p1.position.y.round() - p1.position.y;
-                p1.position.x += x_diff;
-                p1.position.y += y_diff;
+            false => {
+                p1.position = xy_block_collision(p1.position);
             }
         }
 
@@ -205,10 +233,15 @@ fn main() -> Result<(), std::io::Error> {
         d.clear_background(Color::BLACK);
 
         // World Render
-        for layer in &world_layers {
+        let (p1_x, p1_y) = get_int_xy_position(p1.position);
+        let p1_z = p1.position.z as usize;
+        for (z, layer) in world_layers_raw.iter().enumerate() {
             for (y, m_row) in layer.iter().enumerate() {
                 for (x, tile) in m_row.iter().enumerate() {
                     if *tile == 0 {continue}
+                    /*if layer[p1_y+1][p1_x] != 0 || layer[p1_y][p1_x+1] != 0 || layer[p1_y+1][p1_x+1] != 0 {
+                        //p1.draw(&mut d, zoom, offset);
+                    }*/
                     // !! Add check to see if there's a tile in a layer above it, then don't render it
                     let world_coords = Vector3::new(x as f32, y as f32, 0.);
                     let mut screen_coords = Ξ(world_coords.into(), zoom, offset.into());
@@ -221,7 +254,8 @@ fn main() -> Result<(), std::io::Error> {
                         source_rect.width * zoom,
                         source_rect.height * zoom,
                     );
-                    d.draw_texture_pro(&image_texture, source_rect, dest_rect, Vector2::zero(), 0., Color::WHITE);
+                    let color = if p1_x == x + z && p1_y == y + z{Color::DIMGRAY} else {Color::WHITE};
+                    d.draw_texture_pro(&image_texture, source_rect, dest_rect, Vector2::zero(), 0., color);
                 }
             }
         }

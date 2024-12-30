@@ -42,7 +42,7 @@ impl Player {
     }
     pub fn update(&mut self, world:&Vec<Vec<Vec<usize>>> ,dt: f32) {
         let v = Vector2::new(self.velocity.x, self.velocity.y).normalized() * self.speed;
-        if self.position.z > find_highest_z(Vector2::new(self.position.x, self.position.y), world) /*(self.position.z - (self.position.z as i32) as f32) > 0.*/ {
+        if self.position.z > find_highest_z(self.position, world) /*(self.position.z - (self.position.z as i32) as f32) > 0.*/ {
             if self.velocity.z > 0. {
                 self.velocity.z -= G*dt;
             } else {self.velocity.z -= 1.5*G*dt} // for artistic falling effect
