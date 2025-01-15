@@ -1,3 +1,4 @@
+use std::ffi::c_double;
 use raylib::prelude::*;
 use std::fs;
 use serde_json::Value;
@@ -12,13 +13,15 @@ use player::*;
 // Constants
 pub const TILE_WIDTH:i32 = 32;
 pub const TILE_HEIGHT:i32 = 32;
+pub const SCREEN_WIDTH:i32 = 1280;
+pub const SCREEN_HEIGHT:i32 = 720;
 
 // World constants
 pub const G:f32 = 2.*9.816;
 
 /// Determines if the player can be in that spacial position or not
 pub fn world_fn(pos:Vector3, world:&Vec<Vec<Vec<usize>>>, world_width:u64, world_height:u64) -> bool {
-    println!("{}, {}, {}", pos.x, pos.y, pos.z);
+    //println!("{}, {}, {}", pos.x, pos.y, pos.z);
     let (mut x, mut y, z) = (pos.x as i32, pos.y as i32, pos.z.floor() as usize);
     if z < world.len() - 2 {
         if (x < world_width as i32 && x >= 1) && (y < world_height as i32 && y >= 1) {
@@ -62,9 +65,10 @@ fn xy_block_collision(p:Vector3) -> Vector3 {
 fn main() -> Result<(), std::io::Error> {
     // Initializing Raylib
     let (mut rl, thread) = init() // raylib::init()
-        .size(1280, 720)
+        .size(SCREEN_WIDTH, SCREEN_HEIGHT)
         .title("Isometric Tilemap Renderer")
         .build();
+    rl.set_exit_key(None);
     //rl.set_target_fps(60);
     let zoom = 2.;
 
@@ -139,6 +143,8 @@ fn main() -> Result<(), std::io::Error> {
     // Player
     let mut p1 = Player::new("Player1");
 
+    let mut display_debug_info = true;
+
     // Game screen
     while !rl.window_should_close() {
         let dt = rl.get_frame_time();
@@ -159,6 +165,11 @@ fn main() -> Result<(), std::io::Error> {
         }*/
 
         // Keyboard
+        if rl.is_key_pressed(KeyboardKey::KEY_F3) {
+            if display_debug_info {
+                display_debug_info = false;
+            } else { display_debug_info = true; }
+        }
         // World move
         if rl.is_key_down(KeyboardKey::KEY_LEFT) {
             offset.x -= 1.;
@@ -193,7 +204,7 @@ fn main() -> Result<(), std::io::Error> {
             }
         }
         // add dash mechanic with shift and a timer
-        println!("v = {}", p1.velocity.z);
+        //println!("v = {}", p1.velocity.z);
         //println!("jt = {}, {}", jump_timer, jump_number);
         //println!("{:?}", world_fn(p1.position, &world, world_width, world_height));
 
@@ -201,12 +212,12 @@ fn main() -> Result<(), std::io::Error> {
         if p1.position.x > world_width as f32 - 1. {
             p1.position.x = world_width as f32 - 1.05;
         } else if p1.position.x < 1. {
-            p1.position.x = 1.;
+            p1.position.x = 1.05;
         }
         if p1.position.y > world_height as f32 - 1.{
             p1.position.y = world_height as f32 - 1.05;
         } else if p1.position.y < 1. {
-            p1.position.y = 1.;
+            p1.position.y = 1.05;
         }
 
         // Give the player gravity, jump, and ground detection
@@ -235,12 +246,64 @@ fn main() -> Result<(), std::io::Error> {
         // World Render
         let (p1_x, p1_y) = get_int_xy_position(p1.position);
         let p1_z = p1.position.z as usize;
-        for (z, layer) in world_layers_raw.iter().enumerate() {
+        //let (mut p1_render_x, mut p1_render_y, mut p1_render_z);
+        let mut text:&str = "";
+        if p1_z + 1 < world.len() && p1_x + 1 < world_width as usize && p1_y + 1 < world_height as usize {
+            if world[p1_z + 1][p1_y + 1][p1_x] != 0 ||
+                world[p1_z + 1][p1_y][p1_x + 1] != 0 ||
+                world[p1_z + 1][p1_y + 1][p1_x + 1] != 0 {
+                text = "BEHIND";
+            } else {
+                text = "FRONT";
+            }
+        }
+        for y in 0..world[0].len() {
+            for x in 0..world[0][0].len() {
+                for z in 0..world.len() {
+                    let tile = world[z][y][x]; // Get the tile at (z, y, x)
+                    if tile == 0 { continue; }
+
+                    // !! Add check to see if there's a tile in a layer above it, then don't render it
+                    let world_coords = Vector3::new(x as f32, y as f32, z as f32);
+                    let mut screen_coords = Ξ(world_coords.into(), zoom, offset.into());
+                    screen_coords.x += TILE_WIDTH as f32 / 2.;
+                    screen_coords.y -= TILE_HEIGHT as f32 / 2.;
+
+                    let source_rect = texture_lookup[tile - 1];
+                    let dest_rect = Rectangle::new(
+                        screen_coords.x,
+                        screen_coords.y,
+                        source_rect.width * zoom,
+                        source_rect.height * zoom,
+                    );
+
+                    let color = if p1_x == x && p1_y == y { Color::DIMGRAY } else { Color::WHITE };
+                    d.draw_texture_pro(&image_texture, source_rect, dest_rect, Vector2::zero(), 0., color);
+
+                    if p1_x == x && p1_y == y {
+                        p1.draw(&mut d, zoom, offset);
+                    }
+                }
+            }
+        }
+        //p1.draw(&mut d, zoom, offset);
+        /*for (z, layer) in world_layers_raw.iter().enumerate() {
+            render_next = false;
             for (y, m_row) in layer.iter().enumerate() {
                 for (x, tile) in m_row.iter().enumerate() {
                     if *tile == 0 {continue}
-                    /*if layer[p1_y+1][p1_x] != 0 || layer[p1_y][p1_x+1] != 0 || layer[p1_y+1][p1_x+1] != 0 {
-                        //p1.draw(&mut d, zoom, offset);
+                    /*if p1_x == x+z && p1_y == y+z {
+                        println!("True");
+                        if !render_player {
+                            p1.draw(&mut d, zoom, offset);
+                        }
+                        if world[p1_z + 1][p1_y][p1_x + 1] != 0 {
+                            render_player = true;
+                        }
+                    }
+                    if render_next {
+                        p1.draw(&mut d, zoom, offset);
+                        render_player = false;
                     }*/
                     // !! Add check to see if there's a tile in a layer above it, then don't render it
                     let world_coords = Vector3::new(x as f32, y as f32, 0.);
@@ -258,13 +321,13 @@ fn main() -> Result<(), std::io::Error> {
                     d.draw_texture_pro(&image_texture, source_rect, dest_rect, Vector2::zero(), 0., color);
                 }
             }
-        }
+        }*/
 
         // Draw player
         p1.update(&world, dt);
         //let shadow_pos = Ξ(Vector3::new(p1.position.x, p1.position.y, 0.), zoom, offset.into());
         //d.draw_circle(shadow_pos.x as i32 + TILE_WIDTH + TILE_WIDTH/2, shadow_pos.y as i32 - TILE_HEIGHT/2, 16., Color::GRAY);
-        p1.draw(&mut d, zoom, offset);
+        //p1.draw(&mut d, zoom, offset);
 
         // Draw drag vector
         /*if is_dragging {
@@ -283,8 +346,12 @@ fn main() -> Result<(), std::io::Error> {
                 Color::SKYBLUE,
             );
         }
-        d.draw_text(&format!("FPS: {}", fps), 10, 10, 20, Color::WHITE);
-
+        if display_debug_info {
+            d.draw_text(&format!("FPS: {}", fps), 10, 10, 20, Color::WHITE);
+            d.draw_text(text,10, 32, 20, Color::DIMGRAY);
+            d.draw_text(&format!("v_z: {:.1}", p1.velocity.z), 10, 50, 20, Color::DIMGRAY);
+            d.draw_text(&format!("pos: {:.1}, {:.1}, {:.1}", p1.position.x, p1.position.y, p1.position.z), 10, 70, 20, Color::DIMGRAY);
+        }
     }
     Ok(())
 }

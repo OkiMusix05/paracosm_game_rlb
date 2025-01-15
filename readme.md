@@ -9,3 +9,5 @@ world borders.
 world tensor representation done.
 - v0.07: Double jump for funzies
 - v0.08: Added shadow, fixed ground detection and collisions
+- v0.09: Added F3 screen and fixed render order: player can appear 
+to be behind walls
