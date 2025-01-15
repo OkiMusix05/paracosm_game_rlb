@@ -7,8 +7,11 @@ mod special_functions;
 //use special_functions::{Ξ, ξ, to_tile_coords};
 use special_functions::*;
 mod player;
-use player::*;
+mod projectile;
 
+use player::*;
+use crate::projectile::Projectile;
+use crate::projectile::ProjectileType::Ball;
 
 // Constants
 pub const TILE_WIDTH:i32 = 32;
@@ -145,13 +148,22 @@ fn main() -> Result<(), std::io::Error> {
 
     let mut display_debug_info = true;
 
+    // Projectiles
+    let mut projectile_list:Vec<Projectile> = vec![];
+
     // Game screen
     while !rl.window_should_close() {
         let dt = rl.get_frame_time();
         let fps = rl.get_fps();
         // Mouse
         let mouse_position = rl.get_mouse_position();
-        if rl.is_mouse_button_down(MouseButton::MOUSE_BUTTON_LEFT) { is_clicking = true; } else { is_clicking = false; }
+        //if rl.is_mouse_button_down(MouseButton::MOUSE_BUTTON_LEFT) { is_clicking = true; } else { is_clicking = false; }
+        if rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) {
+            let rf_screen = rl.get_mouse_position();
+            projectile_list.push(
+                Projectile::new(Ball, p1.position - Vector3::new(0., 1.5, -1.), to_tile_coords(
+                    rf_screen, zoom, offset, &inverted_layers)));
+        }
         //println!("{:?}", to_tile_coords(mouse_position, zoom, offset, &inverted_layers));
         /*if rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) {
             is_dragging = true;
@@ -262,7 +274,6 @@ fn main() -> Result<(), std::io::Error> {
                 for z in 0..world.len() {
                     let tile = world[z][y][x]; // Get the tile at (z, y, x)
                     if tile == 0 { continue; }
-
                     // !! Add check to see if there's a tile in a layer above it, then don't render it
                     let world_coords = Vector3::new(x as f32, y as f32, z as f32);
                     let mut screen_coords = Ξ(world_coords.into(), zoom, offset.into());
@@ -345,6 +356,28 @@ fn main() -> Result<(), std::io::Error> {
                 2.0,
                 Color::SKYBLUE,
             );
+        }
+        projectile_list.retain(|projectile| {
+            projectile.elapsed_time < projectile.Δt && {
+                let p = projectile.position;
+                let (x, y, z) = (p.x as usize, p.y as usize, p.z as usize);
+                if z+1 < world.len() && y < world_height as usize && x < world_width as usize {
+                    world[z+1][y][x] == 0
+                } else { true }
+            }
+        });
+        for mut projectile in &mut projectile_list {
+            projectile.update(dt);
+           /* let final_pos = Ξ(projectile.final_position,zoom, offset);
+            println!("{:?}", projectile.position);
+            d.draw_circle(final_pos.x as i32, final_pos.y as i32, 4., Color::INDIANRED);*/
+            projectile.draw(&mut d, zoom, offset);
+            /*d.draw_line_ex(
+                Ξ(projectile.position, zoom, offset),
+                final_pos,
+                2.0,
+                Color::SKYBLUE,
+            );*/
         }
         if display_debug_info {
             d.draw_text(&format!("FPS: {}", fps), 10, 10, 20, Color::WHITE);
